@@ -1,0 +1,103 @@
+- channels
+
+(chan & [buf-or-n xfrm ex-handler]) - create a channel
+(to-chan coll)                      - create a channel from a collection
+(promise-chan & [xform ex-handler]) - create a channel taking only one value
+(thread-call f)                     - create a channel returning the return of 'f when complete
+(timeout msec)                      - create a channel that will close in 'msec
+
+(close! ch)                         - close channel 'ch
+
+- buffers
+
+(buffer n)                - creates a blocking buffer of size 'n
+(dropping-buffer n)       - creates an unblocking buffer of size 'n which dropps off the back
+(sliding-buffer n)        - creates an unblocking buffer of size 'n which dropps off the front
+(unblocking-buffer? buff) - predicate returns true for unblocking buffer types
+
+- channel to channel
+
+(take n ch & [buf-or-n])               - creates a channel that takes 'n items from 'ch
+(into coll ch)                         - creates a channel returning contents of 'ch put into 'coll (single item)
+(split p ch & [t-buf-or-n f-buf-or-n]) - creates tuple of two channels with 'ch contents split by 'p predicate true/false results respectively
+(merge chs & [buf-or-n])               - creates channel merging contents of 'chs channels
+(map f chs & [buf-or-n])               - creates channel mapping 'f across 'chs channels
+reduce
+transduce
+
+- misc
+
+onto-chan
+do-alts ;; internal?
+
+- execution macro bodies
+
+go
+go-loop
+thread
+
+- parking / go block ops
+
+<!
+>!
+alt!
+alts!
+
+- blocking / not go block ops
+
+<!!
+>!!
+alt!!
+alts!!
+
+- never block
+
+offer!
+poll!
+
+- asynchronous
+
+put!
+take!
+
+- mix / mult
+
+mix
+admix
+unmix
+unmix-all
+solo-mode
+toggle
+
+mult
+tap
+untap
+untap-all
+
+- pub/sub
+
+pub
+sub
+unsub
+unsub-all
+
+- pipeline
+
+pipe
+pipeline
+pipeline-async
+pipeline-blocking
+
+- deprecated
+
+filter<
+filter>
+map<
+map>
+mapcat<
+mapcat>
+partition
+partition-by
+remove<
+remove>
+unique

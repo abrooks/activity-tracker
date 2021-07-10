@@ -1,70 +1,69 @@
 (ns activity-tracker.core
-  (:require [clojure.core.async :as async]
-            [clojure.java.io :as io]
-            [clojure.java.shell :as shell]
-            [clojure.spec.alpha :as s]
-            [datascript.core :as d]
-            [pjson.core :as json]
-            [clojure.walk :as walk])
-  (:import [java.io File]
-           [java.lang ProcessBuilder]))
+  (:require
+     [activity-tracker.cmds :as cmds]
+     [activity-tracker.i3-msg :as i3]
+     [clojure.core.async :as async]
+     [clojure.spec.alpha :as s]
+     [clojure.string :as str]
+     [datascript.core :as d]
+     [pjson.core :as json]
+     [clojure.walk :as walk]))
 
-(defonce config (atom {}))
+;; TODO
+;; Consider dockerized monitors for portability.
+;; Mount in X11 and DBUS sockets.
 
-(def i3-msg ["i3-msg" "-t" "subscribe" "-m" "[ \"window\" ]"])
+(s/def ::event-id number?)
+(s/def ::event (s/keys :req [::event-id] :opt []))
 
-;; signal time=1576525715.201585 sender=:1.18 -> destination=(null destination) serial=5620 path=/org/freedesktop/login1/session/_329; interface=org.freedesktop.login1.Session; member=Lock
-;; signal time=1576525730.573013 sender=:1.18 -> destination=(null destination) serial=5625 path=/org/freedesktop/login1/session/_329; interface=org.freedesktop.login1.Session; member=Unlock
-(def freedesktop-login-state ["dbus-monitor" "--system" "type='signal',interface='org.freedesktop.login1.Session'"])
-
-;; Based on: https://stackoverflow.com/questions/45292625/how-to-perform-non-blocking-reading-stdout-from-a-subprocess-in-clojure
-(defn run-cmd-async
-  [cmdline ch]
-  (async/thread
-    (let [pbuilder (ProcessBuilder. (into-array String cmdline))
-          process (.start pbuilder)]
-      (with-open [reader (clojure.java.io/reader (.getInputStream process))]
-        (loop []
-          (let [line (.readLine ^java.io.BufferedReader reader)]
-            (if (and line (async/>!! ch line))
-              (recur)
-              (async/close! ch))))))))
-
-(defn poll-cmd-async
-  [cmdline ch msec]
-  (async/thread
-    (loop []
-      (Thread/sleep msec)
-      (let [res (try (apply shell/sh cmdline)
-                 (catch Exception e
-                   (async/>!! ch e)
-                   (async/close! ch)))]
-        (if (and res (async/>!! ch res))
-          (recur)
-          (async/close! ch))))))
+(def db-schema {::event-id {:db/unique :db.unique/identity}})
 
 
-(defn sh
-  [& cmdline]
-  ;; (prn :sh cmdline)
-  (apply shell/sh (map #(if (= File (class %))
-                          (.getPath ^File %)
-                          %)
-                       cmdline)))
+;; Maybe add system level information here?
+(def main-xfrm (map identity))
 
+(defn ex-handler [ex]
+  (with-meta {} {:type :error :exception ex}))
+
+(defonce main-ch (async/chan (async/sliding-buffer 10)
+                             #'main-xfrm
+                             #'ex-handler))
+
+(defonce nexus {:inputs  (async/mix  main-ch)
+                :outputs (async/mult main-ch)})
+
+(def snoop (atom false))
+
+
+#_
+(def layout "
+ i3    screenlock  phone   tracker
+  |        |         |        |
+[FIXi3] [FIXSS]   [FIXph]  [FIXtrk]
+  |        |         |        |
+  v        v         v        v
+  +--------+---------+--------+
+           |
+         [MAIN]
+           |
+           v
+   +-------+--------+
+   |       |        |
+[FILTER] [FILTER] [IDENT]
+   |       |        |
+   v       v        v
+  file    db      snoop
+")
+
+
+(defn -main [cmd & args]
+  (case cmd
+    "record" (do (println "recording...")
+               (loop []
+                (prn (meta (async/<!! (i3/i3-msg-chan))))
+                (recur)))))
 
 (comment
- (def d (async/chan 1000))
- (async/go-loop [] (Thread/sleep 10000) (when (async/>! d (apply shell/sh ["date"])) (recur)))
- (poll-cmd-async ["date"] d 10000)
-
- (def c (async/chan 1000 (map (comp walk/keywordize json/read-str))))
- (run-cmd-async i3-msg c)
-
-
- (def s)
- (run-cmd-async)
-
  (use '[cemerick.pomegranate :only (add-dependencies)])
  (add-dependencies :coordinates '[[pjson "0.5.2"]]
                    :repositories (merge cemerick.pomegranate.aether/maven-central

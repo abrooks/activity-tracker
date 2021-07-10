@@ -131,7 +131,7 @@ format.
 
 The tracker assumes that there will be no jumps (forward or backward) once the
 tracker in started. Handling these jumps is more complicated and difficult to
-implement than delcaring by fiat that we don't handle them. On most systems,
+implement than declaring by fiat that we don't handle them. On most systems,
 jumps to time only happen during OS install or early boot which are times that
 we don't expect to be running. Any sane NTP clients will only sanely drift the
 time incrementally to slowly converge with NTP time.
@@ -147,21 +147,18 @@ etc.).
 Because multiple instances may, exclusively in sequence, share the same daily file, we
 need to be sure that events are identified uniquely across instances (this assures
 that unrelated events are never upserted across tracker instances). We'll rely
-on the above described monotonic millisecond start times to uniquely identify
-events. This is built on the asumption that the activity tracker cannot be
-stopped and restarted within the same millisecond. (Currently running in the
-JVM, this seems absurdly reasonable.)
+on UUIDs for identifying unique events.
 
 ## Event fields
 
 A every event must have the required fields:
 
-- :evt/id - #inst (often same as event start)
+- :evt/id - #uuid
+- :evt/start - #inst
 - :evt/src - com.foo.bar (max 256)
 - :evt/type - source specific (max 256)
 
 Events may also have the following fields:
-- :evt/start - #inst
 - :evt/end - #inst
 - :evt/name - string (may be truncated to make full payload 1024)
 - :evt/truncate - error string indicating truncation to max event size (see below)
